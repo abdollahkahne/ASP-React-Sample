@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Page } from "./Page";
 import {
   FieldContainer,
@@ -9,8 +9,10 @@ import {
   PrimaryButton,
   FieldSet,
   FieldError,
+  SubmissionSuccess,
 } from "./Styles";
 import { useForm } from "react-hook-form";
+import { INewQuestion, askQuestion } from "./Data/QuestionsData";
 
 type TFormData = {
   title: string;
@@ -18,15 +20,22 @@ type TFormData = {
 };
 
 const AskPage = () => {
+  const [submited, setSubmited] = useState(false);
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<TFormData>({ mode: "onBlur" });
+
+  const submitForm = ({ title, content }: TFormData) => {
+    const q: INewQuestion = { title, content, userName: "Ali" };
+    askQuestion(q).then((q) => setSubmited(true));
+  };
+
   return (
     <Page title="Ask A Question">
-      <form>
-        <FieldSet>
+      <form onSubmit={handleSubmit(submitForm)}>
+        <FieldSet disabled={isSubmitting || submited}>
           <FieldContainer>
             <FieldLabel htmlFor="title">Title</FieldLabel>
             <FieldInput
@@ -50,7 +59,7 @@ const AskPage = () => {
               {...register("content", { required: true, minLength: 50 })}
             />
             {errors.content && errors.content.type === "required" && (
-              <FieldError>Please Provide A Title</FieldError>
+              <FieldError>Please Provide A Content</FieldError>
             )}
             {errors.content && errors.content.type === "minLength" && (
               <FieldError>Title must be at least 50 characters long</FieldError>
@@ -59,6 +68,11 @@ const AskPage = () => {
           <FormButtonContainer>
             <PrimaryButton type="submit">Submit Your Question</PrimaryButton>
           </FormButtonContainer>
+          {submited && (
+            <SubmissionSuccess>
+              Your question was successfully submitted
+            </SubmissionSuccess>
+          )}
         </FieldSet>
       </form>
     </Page>

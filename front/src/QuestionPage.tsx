@@ -9,33 +9,46 @@ import {
   FieldTextArea,
   FormButtonContainer,
   PrimaryButton,
+  FieldError,
 } from "./Styles";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Page } from "./Page";
 import { useParams } from "react-router-dom";
-import { getQuestion, IQuestionData } from "./Data/QuestionsData";
+import { getQuestion, giveAnswer, INewAnswer } from "./Data/QuestionsData";
 import { AnswersList } from "./AnswersList";
 import { useForm } from "react-hook-form";
+import { useDispatch, useSelector } from "react-redux";
+import { IAppState, gotQuestionAction, gettingQuestionAction } from "./store";
 
 type TFormData = {
   content: string;
 };
 
 export const QuestionPage = () => {
+  const dispatch = useDispatch();
   const {
     register,
+    reset,
     handleSubmit,
     formState: { errors },
-  } = useForm<TFormData>();
+  } = useForm<TFormData>({ mode: "onBlur" });
   const { questionId } = useParams();
-  const [question, setQuestion] = useState<IQuestionData>();
+  const question = useSelector((store: IAppState) => store.questions.viewing);
   useEffect(() => {
+    dispatch(gettingQuestionAction());
     getQuestion(Number.parseInt(questionId)).then((q) => {
       if (q) {
-        setQuestion(q);
+        dispatch(gotQuestionAction(q));
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionId]);
+  const submitForm = ({ content }: TFormData) => {
+    const answer: INewAnswer = { content, userName: "Ali" };
+    giveAnswer(answer, Number.parseInt(questionId))
+      .then((a) => reset())
+      .catch((err) => err);
+  };
   return (
     <Page>
       <div
@@ -81,11 +94,24 @@ export const QuestionPage = () => {
               css={css`
                 margin-top: 20px;
               `}
+              onSubmit={handleSubmit(submitForm)}
             >
               <FieldSet>
                 <FieldContainer>
                   <FieldLabel htmlFor="content">Your Answer</FieldLabel>
-                  <FieldTextArea id="content" {...register("content")} />
+                  <FieldTextArea
+                    id="content"
+                    {...register("content", {
+                      required: "true",
+                      minLength: 50,
+                    })}
+                  />
+                  {errors.content && errors.content.type === "required" && (
+                    <FieldError>This Field is Required</FieldError>
+                  )}
+                  {errors.content && errors.content.type === "minLength" && (
+                    <FieldError>Min Length of Answer should be 50</FieldError>
+                  )}
                 </FieldContainer>
                 <FormButtonContainer>
                   <PrimaryButton type="submit">

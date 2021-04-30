@@ -3,7 +3,7 @@ import { css } from "@emotion/react";
 import { fontFamily, fontSize, gray1, gray2, gray5 } from "./Styles";
 import React from "react";
 import { UserIcon } from "./Icons/Icons";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 
 type TFormData = {
@@ -11,15 +11,12 @@ type TFormData = {
 };
 
 export const Header = () => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<TFormData>();
+  const navigate = useNavigate();
+  const { register, handleSubmit } = useForm<TFormData>();
   const [searchParams] = useSearchParams();
   const criteria = searchParams.get("criteria") || "";
-  const handleSearchSubmit = (data: any) => {
-    console.log(data);
+  const handleSearchSubmit = ({ search }: TFormData) => {
+    navigate(`/search?criteria=${search}`);
   };
   return (
     <div

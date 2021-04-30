@@ -6,11 +6,23 @@ export interface IQuestionData {
   created: Date;
   answers: IAnswerData[];
 }
+
+export interface INewQuestion {
+  title: string;
+  content: string;
+  userName: string;
+}
+
 export interface IAnswerData {
   answerId: number;
   content: string;
   userName: string;
   created: Date;
+}
+
+export interface INewAnswer {
+  content: string;
+  userName: string;
 }
 
 const questions: IQuestionData[] = [
@@ -77,6 +89,38 @@ export const searchQuestions = (criteria: string): Promise<IQuestionData[]> => {
       q.content.toLowerCase().includes(criteriaLC),
   );
   return wait(500).then(() => returnedQuestions);
+};
+
+export const askQuestion = (q: INewQuestion): Promise<IQuestionData> => {
+  const question: IQuestionData = {
+    ...q,
+    questionId: questions.length + 1,
+    created: new Date(),
+    answers: [],
+  };
+  questions.push(question);
+  return wait(500).then(() => question);
+};
+
+export const giveAnswer = (
+  answer: INewAnswer,
+  questionId: number,
+): Promise<IAnswerData> => {
+  // Filter return object refrence so edit it if needed!
+  const filteredQuestion = questions.filter((q) => q.questionId === questionId);
+  if (!filteredQuestion.length) {
+    return new Promise<IAnswerData>((resolve, reject) =>
+      reject("Wrong Question Id"),
+    );
+  }
+  const question = filteredQuestion[0];
+  const newAnswer: IAnswerData = {
+    ...answer,
+    answerId: question.answers.length + 1,
+    created: new Date(),
+  };
+  question.answers.push(newAnswer);
+  return wait(500).then(() => newAnswer);
 };
 
 const wait = async (ms: number): Promise<void> => {
