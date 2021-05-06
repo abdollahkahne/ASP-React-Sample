@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
 using Dapper;
 using Microsoft.Data.Sqlite;
+using System.Linq;
 
 namespace back.Data
 {
@@ -30,7 +31,7 @@ namespace back.Data
             }
         }
 
-        public AnswerGetResponse PostAnswer(AnswerPostRequest answer)
+        public AnswerGetResponse PostAnswer(Answer answer)
         {
             string sql=@"
             INSERT INTO Answer
@@ -49,7 +50,7 @@ namespace back.Data
             }
         }
 
-        public QuestionGetSingleResponse PostQuestion(QuestionPostRequest question)
+        public QuestionGetSingleResponse PostQuestion(Question question)
         {
             string sql=@"
             INSERT INTO Question
@@ -172,6 +173,54 @@ namespace back.Data
             {
                 connection.Open();
                 return connection.QueryFirst<bool>(sql,new {QuestionId=questionId});
+            }
+        }
+        public IEnumerable<QuestionGetManyResponses> GetQuestionsWithAnswers() {
+            string sql="SELECT QuestionId, Title, Content, UserId, UserName, Created FROM Question";
+            using (var connection=new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+                var questions=connection.Query<QuestionGetManyResponses>(sql);
+                string getAnswerSql=@"            
+	            SELECT AnswerId, QuestionId, Content, Username, Created
+                FROM Answer 
+                WHERE QuestionId = @QuestionId
+                ";
+                foreach (var question in questions)
+                {
+                    question.Answers=connection.Query<AnswerGetResponse>(getAnswerSql,new {QuestionId=question.QuestionId}).ToList();
+                }
+                return questions;
+            }
+        }
+
+        public IEnumerable<QuestionGetManyResponses> GetQuestionsWithAnswerUsingJoin() {
+            string sql=@"
+            SELECT q.QuestionId, q.Title, q.Content, q.UserName, q.Created,
+		    a.QuestionId, a.AnswerId, a.Content, a.Username, a.Created
+	        FROM Question q
+		    LEFT JOIN Answer a ON q.QuestionId = a.QuestionId
+            ";
+            using (var connection= new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+                var QuestionDictionary=new Dictionary<int,QuestionGetManyResponses>();
+                return connection.Query<QuestionGetManyResponses,AnswerGetResponse,QuestionGetManyResponses>(sql,map:(q,a)=>
+                {
+                    QuestionGetManyResponses question;
+                    if (!QuestionDictionary.TryGetValue(q.QuestionId,out question)) {
+                        question=q;
+                        // Method for generating an object of IEnumerable
+                        // We can use List too
+                        // question.Answers=Enumerable.Empty<AnswerGetResponse>();
+                        question.Answers=new List<AnswerGetResponse>();
+                        QuestionDictionary.Add(question.QuestionId,question);
+                    }
+                    if (a.AnswerId!=0) {
+                        question.Answers.Add(a);
+                    }                    
+                    return question;
+                },splitOn:"QuestionId").Distinct();
             }
         }
     }
