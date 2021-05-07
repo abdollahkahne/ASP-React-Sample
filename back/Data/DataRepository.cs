@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace back.Data
 {
@@ -118,6 +119,30 @@ namespace back.Data
             }
         }
 
+        public QuestionGetSingleResponse GetQuestionWithMulti(int questionId) {
+            string sql=@"
+            SELECT QuestionId, Title, Content, UserId, Username, Created
+	        FROM Question 
+	        WHERE QuestionId = @QuestionId;         
+	        SELECT AnswerId, QuestionId, Content, Username, Created
+	        FROM Answer 
+	        WHERE QuestionId = @QuestionId
+            ";
+            using (var connection=new SqliteConnection(_connectionString))
+            {
+                using (var multi=connection.QueryMultiple(sql,new {QuestionId= questionId}))
+                {
+                    var question=multi.Read<QuestionGetSingleResponse>().FirstOrDefault();
+                    // Always check null case if it is FirstOrDefault 
+                    // Which means there is condition which query may return null!
+                    if (question!=null)
+                        question.Answers=multi.Read<AnswerGetResponse>();
+                    return question;
+                }
+                
+            }
+        }
+
         public IEnumerable<QuestionGetManyResponses> GetQuestionBySearch(string search)
         {
             string sql=@"SELECT QuestionId, Title, Content, UserId, UserName, Created
@@ -131,6 +156,25 @@ namespace back.Data
             {
                 connection.Open();
                 return connection.Query<QuestionGetManyResponses>(sql,new {Search='%'+search+'%'});
+            }
+        }
+
+        public IEnumerable<QuestionGetManyResponses> GetQuestionsBySearchWithPagination(string search, int page=1, int pageSize=20) {
+            string sql=@"SELECT * From (SELECT QuestionId, Title, Content, UserId, UserName, Created
+             FROM Question WHERE Title LIKE @Search	
+             UNION 
+             SELECT QuestionId, Title, Content, UserId, UserName, Created
+		    FROM Question 
+		    WHERE Content LIKE @Search)sub Order By QuestionId Limit @PageSize Offset (@PageNo-1)*@PageSize";
+            using (var connection= new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+                var parameters=new {
+                    Search='%'+search+'%',
+                    PageNo=page,
+                    PageSize = pageSize
+                };
+                return connection.Query<QuestionGetManyResponses>(sql,parameters);
             }
         }
 
@@ -159,7 +203,18 @@ namespace back.Data
             }
         }
 
-
+        public async Task<IEnumerable<QuestionGetManyResponses>> GetUnAnsweredQuestionsAsync() {
+            string sql=@"SELECT QuestionId, Title, Content, UserId, UserName, Created
+	        FROM Question q
+	        WHERE NOT EXISTS (SELECT *
+	        FROM Answer a
+	        WHERE a.QuestionId = q.QuestionId)";
+            using (var connection= new SqliteConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                return await connection.QueryAsync<QuestionGetManyResponses>(sql);
+            }
+        }
         public bool QuestionExists(int questionId)
         {
             string sql=@"            

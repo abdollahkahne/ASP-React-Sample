@@ -34,6 +34,8 @@ namespace back
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "back", Version = "v1" });
             });
+            services.AddMemoryCache();
+            services.AddSingleton<IQuestionCache,QuestionCache>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

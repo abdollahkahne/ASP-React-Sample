@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using back.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,14 +11,16 @@ namespace back.Controllers
     public class QuestionsController : ControllerBase
     {
         private readonly IDataRepository _dataRepository;
+        private readonly IQuestionCache _cache;
 
-        public QuestionsController(IDataRepository dataRepository)
+        public QuestionsController(IDataRepository dataRepository, IQuestionCache cache)
         {
             _dataRepository = dataRepository;
+            _cache = cache;
         }
 
         [HttpGet]
-        public IEnumerable<QuestionGetManyResponses> GetQuestions(string search, bool includeAnswers)
+        public IEnumerable<QuestionGetManyResponses> GetQuestions(string search, bool includeAnswers,int page=1,int pageSize=20)
         {
             if (string.IsNullOrEmpty(search))
             {
@@ -26,24 +29,29 @@ namespace back.Controllers
                 else
                 { return _dataRepository.GetQuestions(); }
             }
-            var questions = _dataRepository.GetQuestionBySearch(search);
+            var questions = _dataRepository.GetQuestionsBySearchWithPagination(search,page,pageSize);
 
             return questions;
         }
         [HttpGet("unanswered")]
-        public IEnumerable<QuestionGetManyResponses> GetUnAnsweredQuestions()
+        public async Task<IEnumerable<QuestionGetManyResponses>> GetUnAnsweredQuestions()
         {
-            return _dataRepository.GetUnAnsweredQuestions();
+            return await _dataRepository.GetUnAnsweredQuestionsAsync();
         }
 
         [HttpGet("{questionId}")]
         public ActionResult<QuestionGetSingleResponse> GetQuestion(int questionId)
         {
-            var question = _dataRepository.GetQuestion(questionId);
-            if (question != null)
-                return Ok(question); // We can use return question directly too
-            else
-                return NotFound();
+            var question=_cache.Get(questionId);
+            if (question==null) {
+                question = _dataRepository.GetQuestion(questionId);
+                if (question != null)
+                    _cache.Set(question);
+                else
+                    return NotFound();
+            }
+            return Ok(question); // Read it from Memory Cache if already exist there
+                
         }
 
         [HttpPost]
@@ -62,6 +70,7 @@ namespace back.Controllers
         [HttpPut("{questionId}")]
         public ActionResult<QuestionGetSingleResponse> UpdateQuestion(int questionId, QuestionPutRequest question)
         {
+            _cache.Remove(questionId);
             if (_dataRepository.QuestionExists(questionId))
                 return _dataRepository.PutQuestion(questionId, question);
             else
@@ -70,6 +79,7 @@ namespace back.Controllers
         [HttpDelete("{questionId}")]
         public ActionResult DeleteQuestion(int questionId)
         {
+            _cache.Remove(questionId);
             if (_dataRepository.QuestionExists(questionId))
             {
                 _dataRepository.DeleteQuestion(questionId);
@@ -81,6 +91,7 @@ namespace back.Controllers
         [HttpPost("answer")]
         public ActionResult<AnswerGetResponse> PostAnswer(AnswerPostRequest answer)
         {
+            _cache.Remove(answer.QuestionId);
             if (_dataRepository.QuestionExists(answer.QuestionId))
             {
                 var addedAnswer = _dataRepository.PostAnswer(new Answer
