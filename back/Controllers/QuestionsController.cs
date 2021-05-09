@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using back.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace back.Controllers
@@ -54,6 +55,7 @@ namespace back.Controllers
                 
         }
 
+        [Authorize]
         [HttpPost]
         public ActionResult<QuestionGetSingleResponse> PostQuestion(QuestionPostRequest question)
         {
@@ -67,6 +69,8 @@ namespace back.Controllers
             });
             return CreatedAtAction(nameof(GetQuestion), new { questionId = addedQuestion.QuestionId }, addedQuestion);
         }
+
+        [Authorize(Policy ="QuestionAuthor")]
         [HttpPut("{questionId}")]
         public ActionResult<QuestionGetSingleResponse> UpdateQuestion(int questionId, QuestionPutRequest question)
         {
@@ -76,6 +80,8 @@ namespace back.Controllers
             else
                 return NotFound();
         }
+
+        [Authorize]
         [HttpDelete("{questionId}")]
         public ActionResult DeleteQuestion(int questionId)
         {
@@ -88,6 +94,8 @@ namespace back.Controllers
             else
                 return NotFound();
         }
+
+        [Authorize]
         [HttpPost("answer")]
         public ActionResult<AnswerGetResponse> PostAnswer(AnswerPostRequest answer)
         {

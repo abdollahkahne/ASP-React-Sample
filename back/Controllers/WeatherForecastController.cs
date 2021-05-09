@@ -2,11 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
 namespace back.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("[controller]")]
     public class WeatherForecastController : ControllerBase
@@ -23,6 +25,7 @@ namespace back.Controllers
             _logger = logger;
         }
 
+        [AllowAnonymous]
         [HttpGet]
         public IEnumerable<WeatherForecast> Get()
         {
@@ -34,6 +37,19 @@ namespace back.Controllers
                 Summary = Summaries[rng.Next(Summaries.Length)]
             })
             .ToArray();
+        }
+
+        [HttpGet]
+        [Route("{days}")]
+        public IEnumerable<WeatherForecast> GetDays(int days) {
+            var randomGenerator=new Random();
+            return Enumerable.Range(1,days).Select(
+                index=>new WeatherForecast {
+                    Date = DateTime.Now.AddDays(index),
+                    TemperatureC = randomGenerator.Next(-20, 55),
+                    Summary = Summaries[randomGenerator.Next(Summaries.Length)]
+                }
+            ).ToArray();
         }
     }
 }

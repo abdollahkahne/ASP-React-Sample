@@ -12,6 +12,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using back.Authorization;
+using Microsoft.AspNetCore.Authorization;
 
 namespace back
 {
@@ -27,6 +30,7 @@ namespace back
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            
             services.AddScoped<IDataRepository,DataRepository>();          
 
             services.AddControllers();
@@ -36,6 +40,26 @@ namespace back
             });
             services.AddMemoryCache();
             services.AddSingleton<IQuestionCache,QuestionCache>();
+
+            services.AddAuthentication(options =>{
+                options.DefaultAuthenticateScheme=JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme=JwtBearerDefaults.AuthenticationScheme;
+            }).AddJwtBearer(options =>{
+                options.Authority=Configuration["Auth0:Authority"];
+                options.Audience=Configuration["Auth0:Audience"];
+            });
+            services.AddHttpClient();
+            services.AddAuthorization(option =>{
+                option.AddPolicy("QuestionAuthor",policy =>{
+                    // policy.RequireAuthenticatedUser();
+                    // policy.AddRequirements(new MustBeQuestionAuthorRequirement());
+                    policy.Requirements.Add(new MustBeQuestionAuthorRequirement());
+                });
+            });
+            // This can be added Multiple times for different Handler. But What happen 
+            // if we inject IAuthorizationHandler somewhere?!
+            services.AddScoped<IAuthorizationHandler,MustBeQuestionAuthorHandler>();
+            services.AddHttpContextAccessor();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -51,6 +75,7 @@ namespace back
             app.UseHttpsRedirection();
 
             app.UseRouting();
+            app.UseAuthentication();
 
             app.UseAuthorization();
 
